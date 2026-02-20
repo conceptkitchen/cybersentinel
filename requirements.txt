@@ -1,0 +1,22 @@
+# CyberSentinel - Multi-Agent Security Operations Center
+# AWS x Anthropic x Datadog GenAI Hackathon
+
+# Core agent framework
+strands-agents>=1.0.0
+strands-agents-tools>=0.1.0
+
+# AWS SDK (for Bedrock model provider)
+boto3>=1.35.0
+
+# MCP integration
+mcp>=1.0.0
+fastmcp>=2.0.0
+
+# Web server for War Room dashboard
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+websockets>=13.0
+
+# Utilities
+python-dotenv>=1.0.0
+rich>=13.9.0
