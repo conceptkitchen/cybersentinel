@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CyberSentinel War Room</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'cyber-bg': '#0a0e1a',
+                        'cyber-panel': '#111827',
+                        'cyber-border': '#1f2937',
+                        'cyber-red': '#ef4444',
+                        'cyber-amber': '#f59e0b',
+                        'cyber-green': '#10b981',
+                        'cyber-blue': '#3b82f6',
+                        'cyber-purple': '#8b5cf6',
+                        'cyber-cyan': '#06b6d4',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background: #0a0e1a; color: #e5e7eb; }
+        .mono { font-family: 'JetBrains Mono', monospace; }
+        .agent-card { transition: all 0.3s ease; }
+        .agent-card.active { box-shadow: 0 0 20px rgba(59, 130, 246, 0.3); }
+        .agent-card.alert { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); animation: pulse-glow 2s infinite; }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 40px rgba(239, 68, 68, 0.6); }
+        }
+        @keyframes scan-line {
+            0% { transform: translateY(-100%); }
+            100% { transform: translateY(100vh); }
+        }
+        .scan-line {
+            position: fixed; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+            animation: scan-line 4s linear infinite; opacity: 0.3; pointer-events: none; z-index: 50;
+        }
+        .activity-entry { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .severity-critical { color: #ef4444; }
+        .severity-warning { color: #f59e0b; }
+        .severity-info { color: #3b82f6; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    </style>
+</head>
+<body class="bg-cyber-bg min-h-screen">
+    <div class="scan-line"></div>
+
+    <div id="app" class="p-4">
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-4">
+                <div class="text-3xl font-bold">
+                    <span class="text-cyber-red">CYBER</span><span class="text-white">SENTINEL</span>
+                </div>
+                <div class="text-sm text-gray-500 mono">WAR ROOM</div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div id="connection-status" class="flex items-center gap-2 text-sm">
+                    <span class="w-2 h-2 rounded-full bg-gray-500" id="ws-dot"></span>
+                    <span class="text-gray-500" id="ws-text">Connecting...</span>
+                </div>
+                <div class="mono text-sm text-gray-400" id="clock"></div>
+            </div>
+        </header>
+
+        <!-- Incident Banner -->
+        <div id="incident-banner" class="hidden mb-4 bg-red-900/30 border border-red-700 rounded-lg p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">&#9888;</span>
+                    <div>
+                        <div class="font-bold text-red-400" id="incident-title">ACTIVE INCIDENT</div>
+                        <div class="text-sm text-red-300" id="incident-details"></div>
+                    </div>
+                </div>
+                <div class="mono text-sm text-red-400" id="incident-timer">00:00</div>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-12 gap-4">
+            <!-- Agent Panels (left 8 cols) -->
+            <div class="col-span-8">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <!-- Detection Agent -->
+                    <div class="agent-card bg-cyber-panel border border-cyber-border rounded-lg p-4" id="card-detection">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xl">&#128269;</span>
+                                <div>
+                                    <div class="font-semibold text-white">Detection Agent</div>
+                                    <div class="text-xs text-gray-500">NIST DETECT</div>
+                                </div>
+                            </div>
+                            <span class="px-2 py-1 rounded text-xs mono" id="status-detection">IDLE</span>
+                        </div>
+                        <div class="text-sm text-gray-400 mb-2">Threat hunting, IOC identification, anomaly detection</div>
+                        <div class="mono text-xs text-gray-500 h-24 overflow-y-auto" id="log-detection">
+                            <div class="text-gray-600">Awaiting alert...</div>
+                        </div>
+                    </div>
+
+                    <!-- Prevention Agent -->
+                    <div class="agent-card bg-cyber-panel border border-cyber-border rounded-lg p-4" id="card-prevention">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xl">&#128737;</span>
+                                <div>
+                                    <div class="font-semibold text-white">Prevention Agent</div>
+                                    <div class="text-xs text-gray-500">NIST PROTECT</div>
+                                </div>
+                            </div>
+                            <span class="px-2 py-1 rounded text-xs mono" id="status-prevention">IDLE</span>
+                        </div>
+                        <div class="text-sm text-gray-400 mb-2">Firewall rules, WAF policies, access control</div>
+                        <div class="mono text-xs text-gray-500 h-24 overflow-y-auto" id="log-prevention">
+                            <div class="text-gray-600">Standing by...</div>
+                        </div>
+                    </div>
+
+                    <!-- Response Agent -->
+                    <div class="agent-card bg-cyber-panel border border-cyber-border rounded-lg p-4" id="card-response">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xl">&#128680;</span>
+                                <div>
+                                    <div class="font-semibold text-white">Response Agent</div>
+                                    <div class="text-xs text-gray-500">NIST RESPOND</div>
+                                </div>
+                            </div>
+                            <span class="px-2 py-1 rounded text-xs mono" id="status-response">IDLE</span>
+                        </div>
+                        <div class="text-sm text-gray-400 mb-2">Incident containment, forensics, evidence collection</div>
+                        <div class="mono text-xs text-gray-500 h-24 overflow-y-auto" id="log-response">
+                            <div class="text-gray-600">On standby...</div>
+                        </div>
+                    </div>
+
+                    <!-- Recovery Agent -->
+                    <div class="agent-card bg-cyber-panel border border-cyber-border rounded-lg p-4" id="card-recovery">
+                        <div class="flex items-center justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xl">&#9851;</span>
+                                <div>
+                                    <div class="font-semibold text-white">Recovery Agent</div>
+                                    <div class="text-xs text-gray-500">NIST RECOVER</div>
+                                </div>
+                            </div>
+                            <span class="px-2 py-1 rounded text-xs mono" id="status-recovery">IDLE</span>
+                        </div>
+                        <div class="text-sm text-gray-400 mb-2">System restoration, backup verification, reporting</div>
+                        <div class="mono text-xs text-gray-500 h-24 overflow-y-auto" id="log-recovery">
+                            <div class="text-gray-600">Ready for recovery...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SOC Commander -->
+                <div class="bg-cyber-panel border border-cyber-border rounded-lg p-4" id="card-commander">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">&#9733;</span>
+                            <div>
+                                <div class="font-bold text-white text-lg">SOC Commander</div>
+                                <div class="text-xs text-gray-500">Multi-Agent Orchestrator</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="px-3 py-1 rounded text-xs mono" id="status-commander">IDLE</span>
+                        </div>
+                    </div>
+                    <div class="mono text-xs text-gray-400 h-32 overflow-y-auto" id="log-commander">
+                        <div class="text-gray-600">SOC Commander initialized. Awaiting security alerts...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Feed (right 4 cols) -->
+            <div class="col-span-4">
+                <div class="bg-cyber-panel border border-cyber-border rounded-lg p-4 h-full">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="font-semibold text-white">Live Activity Feed</div>
+                        <div class="text-xs text-gray-500 mono" id="activity-count">0 events</div>
+                    </div>
+                    <div class="space-y-2 h-[calc(100vh-220px)] overflow-y-auto" id="activity-feed">
+                        <div class="text-sm text-gray-600 text-center py-8">No activity yet. Trigger a scenario to begin.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scenario Buttons -->
+        <div class="mt-4 flex gap-3">
+            <button onclick="triggerScenario('ransomware')" class="px-4 py-2 bg-red-900/50 border border-red-700 text-red-400 rounded-lg hover:bg-red-900/80 mono text-sm transition">
+                &#9888; Ransomware (CRITICAL)
+            </button>
+            <button onclick="triggerScenario('data_exfil')" class="px-4 py-2 bg-amber-900/50 border border-amber-700 text-amber-400 rounded-lg hover:bg-amber-900/80 mono text-sm transition">
+                &#128274; Data Exfil (HIGH)
+            </button>
+            <button onclick="triggerScenario('brute_force')" class="px-4 py-2 bg-blue-900/50 border border-blue-700 text-blue-400 rounded-lg hover:bg-blue-900/80 mono text-sm transition">
+                &#128272; Brute Force (MEDIUM)
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // WebSocket connection
+        let ws = null;
+        let incidentStart = null;
+
+        function connect() {
+            const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${location.host}/ws`);
+
+            ws.onopen = () => {
+                document.getElementById('ws-dot').className = 'w-2 h-2 rounded-full bg-cyber-green';
+                document.getElementById('ws-text').textContent = 'Connected';
+                document.getElementById('ws-text').className = 'text-cyber-green';
+            };
+
+            ws.onclose = () => {
+                document.getElementById('ws-dot').className = 'w-2 h-2 rounded-full bg-gray-500';
+                document.getElementById('ws-text').textContent = 'Disconnected';
+                document.getElementById('ws-text').className = 'text-gray-500';
+                setTimeout(connect, 3000);
+            };
+
+            ws.onmessage = (event) => {
+                const msg = JSON.parse(event.data);
+                handleMessage(msg);
+            };
+        }
+
+        function handleMessage(msg) {
+            switch (msg.type) {
+                case 'init':
+                    updateAllAgents(msg.data.agent_status);
+                    msg.data.activity_log.forEach(addActivityEntry);
+                    if (msg.data.incident) showIncident(msg.data.incident);
+                    break;
+                case 'activity':
+                    addActivityEntry(msg.data);
+                    break;
+                case 'agent_update':
+                    updateAgent(msg.data.agent, msg.data.status, msg.data.action);
+                    break;
+                case 'incident':
+                    showIncident(msg.data);
+                    break;
+            }
+        }
+
+        function updateAllAgents(statuses) {
+            Object.entries(statuses).forEach(([agent, data]) => {
+                updateAgent(agent, data.status);
+            });
+        }
+
+        function updateAgent(agent, status, action) {
+            const card = document.getElementById(`card-${agent}`);
+            const statusEl = document.getElementById(`status-${agent}`);
+            const logEl = document.getElementById(`log-${agent}`);
+            if (!card || !statusEl) return;
+
+            // Update status badge
+            const colors = {
+                idle: 'bg-gray-700 text-gray-400',
+                active: 'bg-blue-900/50 text-blue-400 border border-blue-600',
+                alert: 'bg-red-900/50 text-red-400 border border-red-600',
+                complete: 'bg-green-900/50 text-green-400 border border-green-600',
+            };
+            statusEl.className = `px-2 py-1 rounded text-xs mono ${colors[status] || colors.idle}`;
+            statusEl.textContent = status.toUpperCase();
+
+            // Update card glow
+            card.classList.remove('active', 'alert');
+            if (status === 'active') card.classList.add('active');
+            if (status === 'alert') card.classList.add('alert');
+
+            // Add action to agent log
+            if (action && logEl) {
+                const time = new Date().toLocaleTimeString();
+                const entry = document.createElement('div');
+                entry.className = 'activity-entry mb-1';
+                entry.innerHTML = `<span class="text-gray-600">${time}</span> ${action}`;
+                logEl.prepend(entry);
+            }
+        }
+
+        function addActivityEntry(entry) {
+            const feed = document.getElementById('activity-feed');
+            const placeholder = feed.querySelector('.text-center');
+            if (placeholder) placeholder.remove();
+
+            const el = document.createElement('div');
+            el.className = 'activity-entry text-sm border-l-2 pl-3 py-1';
+
+            const borderColor = {
+                critical: 'border-cyber-red',
+                warning: 'border-cyber-amber',
+                info: 'border-cyber-blue',
+            }[entry.severity] || 'border-gray-600';
+            el.classList.add(borderColor);
+
+            const time = new Date(entry.timestamp).toLocaleTimeString();
+            const agentColors = {
+                detection: 'text-cyber-cyan',
+                prevention: 'text-cyber-amber',
+                response: 'text-cyber-red',
+                recovery: 'text-cyber-green',
+                commander: 'text-cyber-purple',
+            };
+            const agentColor = agentColors[entry.agent] || 'text-gray-400';
+
+            el.innerHTML = `
+                <div class="flex items-center gap-2 mb-0.5">
+                    <span class="mono text-xs text-gray-600">${time}</span>
+                    <span class="mono text-xs ${agentColor}">${entry.agent.toUpperCase()}</span>
+                </div>
+                <div class="text-gray-300">${entry.action}</div>
+                ${entry.details ? `<div class="text-xs text-gray-500 mt-0.5">${entry.details}</div>` : ''}
+            `;
+
+            feed.prepend(el);
+            document.getElementById('activity-count').textContent = `${feed.children.length} events`;
+        }
+
+        function showIncident(incident) {
+            const banner = document.getElementById('incident-banner');
+            banner.classList.remove('hidden');
+            document.getElementById('incident-title').textContent =
+                `ACTIVE INCIDENT - ${incident.scenario.toUpperCase()}`;
+            document.getElementById('incident-details').textContent =
+                `Mode: ${incident.mode} | Started: ${new Date(incident.started_at).toLocaleTimeString()}`;
+            incidentStart = new Date(incident.started_at);
+        }
+
+        async function triggerScenario(name) {
+            try {
+                const res = await fetch(`/api/scenario/${name}`, { method: 'POST' });
+                const data = await res.json();
+                console.log('Scenario triggered:', data);
+            } catch (e) {
+                console.error('Failed to trigger scenario:', e);
+            }
+        }
+
+        // Clock
+        function updateClock() {
+            document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+            if (incidentStart) {
+                const elapsed = Math.floor((Date.now() - incidentStart.getTime()) / 1000);
+                const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+                const secs = (elapsed % 60).toString().padStart(2, '0');
+                document.getElementById('incident-timer').textContent = `${mins}:${secs}`;
+            }
+            requestAnimationFrame(updateClock);
+        }
+
+        // Initialize
+        connect();
+        updateClock();
+    </script>
+</body>
+</html>
