@@ -8,6 +8,7 @@ call real AWS APIs via boto3.
 import json
 import random
 from datetime import datetime, timedelta
+from typing import Optional
 from strands import tool
 
 
@@ -416,5 +417,3 @@ def iam_revoke_sessions(username: str, reason: str) -> str:
         },
         indent=2,
     )
-
-from typing import Optional
